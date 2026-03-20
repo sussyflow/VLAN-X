@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# AUTHOR & METADATA
+# Title:        VLAN Hunter
+# Author:       sussyflow
+# Description:  Reliable PPPoE/IPoE VLAN Discovery Tool (Linux)
+
 [ "$EUID" -ne 0 ] && echo "[!] ERROR: ROOT REQUIRED" && exit 1
 [ ! -w "." ] && echo "[!] ERROR: Current directory is not writable." && exit 1
 command -v python3 >/dev/null 2>&1 || { echo "[!] ERROR: python3 missing."; exit 1; }
