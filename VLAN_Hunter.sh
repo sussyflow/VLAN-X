@@ -12,7 +12,7 @@ command -v curl >/dev/null 2>&1 || { echo "[!] ERROR: curl missing. Required for
 command -v ethtool >/dev/null 2>&1 || { echo "[!] ERROR: ethtool missing. Required for VLAN offloading."; exit 1; }
 
 export PACKET_DELAY=0.025
-export CONCURRENCY_FACTOR=16
+export CONCURRENCY_FACTOR=8
 
 BASE=$(mktemp -d /tmp/VLAN_Hunter.XXXXXX)
 VENV="$BASE/venv"
@@ -24,7 +24,7 @@ export DS_W=$WDTH
 LINE() { printf '%*s\n' "$WDTH" '' | tr ' ' '-'; }
 
 EXIT_FUNC() {
-    echo -e "\n[*] Cleaning up temporary runtime files..."
+    echo -e "[*] Cleaning up temporary runtime files..."
     [ -d "$BASE" ] && rm -rf "$BASE"
 }
 
@@ -46,9 +46,16 @@ echo ""
 LINE
 printf "Type 'ACCEPT' to continue: "
 read USIN
+
+USIN=$(echo "$USIN" | tr '[:lower:]' '[:upper:]')
+
 if [ "$USIN" != "ACCEPT" ]; then 
     echo "[!] Aborted by user."
+    echo
     exit 1
+else
+    echo "[+] Usage Terms accepted. Continuing..."
+    echo
 fi
 
 PYTHON_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
@@ -84,7 +91,8 @@ fi
 
 if ! "$VENV/bin/python3" -c "import scapy" >/dev/null 2>&1; then
     echo "[*] Installing Scapy dependency..."
-    "$VENV/bin/pip" install scapy || { echo "[!] Scapy installation failed."; exit 1; }
+    "$VENV/bin/pip" install scapy -q >/dev/null 2>&1 || { echo "[!] Scapy installation failed."; exit 1; }
+
 fi
 
 TEMP=$(mktemp -d "$BASE/run.XXXXXX")
@@ -189,10 +197,15 @@ def MAIN():
         print("-" * 40)
         for i, (n, m) in enumerate(list_if, 1): print(f" {i:>2}. {n:<18} [ {m} ]")
         try:
-            sel = int(input("\nENTER INDEX: ")) - 1
+            sel = int(input("\nEnter Interface Index: ")) - 1
+            if sel < 0 or sel >= len(list_if):
+                print("\n[!] Selection out of range.")
+                return
             ifce, hw_mac = list_if[sel]
-        except: return
-        
+        except:
+            print("\n[!] Invalid selection.")
+            return
+
     if not hw_mac: return
     clean_mac = hw_mac.replace(':', '')
     if len(clean_mac) != 12:
