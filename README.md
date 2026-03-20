@@ -20,8 +20,8 @@ Operation requires a modern Linux distribution and administrative (root) privile
 Grant the script execution permissions and launch it from your terminal:
 
 ```bash
-chmod +x vlan-hunter.sh
-sudo ./vlan-hunter.sh
+chmod +x vlan_hunter.sh
+sudo ./vlan_hunter.sh
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ sudo ./vlan-hunter.sh
 VLAN Hunter functions as a guided interactive tool or accepts specific instructions via the command line:
 
 ```bash
-sudo ./vlan-hunter.sh -i [interface] -v [range]
+sudo ./vlan_hunter.sh -i [interface] -v [range]
 ```
 
 * **Interface Selection (-i):** Defines which network hardware to scan.
