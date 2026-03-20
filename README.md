@@ -1,4 +1,5 @@
 VLAN Hunter
+
 VLAN Hunter is a high-performance network diagnostic utility for Linux. It is engineered to scan network interfaces and identify active internet or multimedia services partitioned across virtual segments (VLANs) by using a parallel, non-persistent approach.
 
 Key Capabilities
