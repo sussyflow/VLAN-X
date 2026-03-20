@@ -1,130 +1,43 @@
-# VLAN Hunter
+VLAN Hunter
+VLAN Hunter is a high-performance network diagnostic utility for Linux. It is engineered to scan network interfaces and identify active internet or multimedia services partitioned across virtual segments (VLANs) by using a parallel, non-persistent approach.
 
-**VLAN Hunter** is a high-performance VLAN discovery tool for Linux that detects active PPPoE and IPoE (DHCP) services by injecting raw discovery frames.
+Key Capabilities
+The utility provides comprehensive service discovery by identifying multiple broadcast protocols simultaneously.
 
-It is designed for fast, parallel scanning of VLAN ranges with minimal system impact using an isolated runtime environment.
+Environmental Isolation: Operates within a temporary, isolated environment that is purged after execution to ensure zero impact on the host system.
 
----
+Hardware Management: Automatically manages system network settings to detect service tags that are often hidden from standard diagnostic tools.
 
-## Features
+Intelligent Mapping: Categorizes detected services into logical groups such as Internet, Video, Voice, or Management.
 
-* Detects **PPPoE (PADO)** responses
-* Detects **IPoE / DHCP servers**
-* Supports **full VLAN range scanning (0–4095)**
-* Parallel packet injection for speed
-* Automatic interface selection
-* Optional **MAC address spoofing**
-* Clean, formatted output with service classification
-* Uses a **temporary virtual environment** (no global installs)
+High-Speed Assessment: Employs multi-threaded processing to complete large-scale scans across thousands of segments rapidly.
 
----
+Requirements
+Operation requires a modern Linux distribution and administrative (root) privileges for low-level network access. The script depends on standard system utilities: python3, curl, and ethtool.
 
-## Requirements
+Getting Started
+Grant the script execution permissions and launch it from your terminal:
 
-* Linux (tested on modern distributions)
-* Root privileges
-* Python 3
-* Network interface capable of raw packet injection
-
----
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/vlan-hunter.git
-cd vlan-hunter
+Bash
 chmod +x vlan-hunter.sh
-```
-
----
-
-## Usage
-
-Run the script as root:
-
-```bash
 sudo ./vlan-hunter.sh
-```
+Usage
+VLAN Hunter functions as a guided interactive tool or accepts specific instructions via the command line:
 
----
+Bash
+sudo ./vlan-hunter.sh -i [interface] -v [range]
+Interface Selection (-i): Defines which network hardware to scan.
 
-### Options
+Segment Range (-v): Defines the specific segment or range of segments to investigate.
 
-You can pass arguments directly:
+Note: The system utilizes a fixed 3-second observation window to capture all upstream service responses.
 
-```bash
-sudo ./vlan-hunter.sh -i eth0 -v 100-200
-```
+Operational Logic
+The utility broadcasts discovery requests across the network and listens for responses from upstream providers. It temporarily bypasses hardware filters to observe all incoming traffic tags, correlates the data into a readable report, and restores original hardware settings before exiting.
 
-#### Available flags:
+Disclaimer
+This utility is intended for diagnostic purposes and performs low-level operations visible to network administrators. Use this tool only on infrastructure where you have explicit authority to perform testing.
 
-* `-i` → नेटवर्क interface (e.g., `eth0`)
-* `-v` → VLAN ID or range (e.g., `100` or `10-200`)
-* `-m` → Spoof MAC address (e.g., `00:11:22:33:44:55`)
-* `-t` → Timeout in seconds for response listening
+Author: sussyflow
 
----
-
-## Example
-
-```bash
-sudo ./vlan-hunter.sh -i eth0 -v 0-500 -t 5
-```
-
----
-
-## Output
-
-The tool will display:
-
-* VLAN ID
-* Protocol (PPPoE / DHCP)
-* Service type (INTERNET / IPTV / VOIP)
-* Identity (e.g., ISP name or DHCP info)
-* MAC address of responding device
-
----
-
-## How It Works
-
-* Sends **PPPoE discovery (PADI)** frames across VLANs
-* Sends **DHCP discover packets** for IPoE detection
-* Listens for:
-
-  * PPPoE PADO responses
-  * DHCP offers
-* Correlates responses with VLAN IDs
-
----
-
-## Disclaimer
-
-This tool performs low-level network operations and may be detected as abnormal or intrusive by network infrastructure.
-
-* Use **only on networks you own or have explicit permission to test**
-* Unauthorized use may violate laws or ISP policies
-* The author is **not responsible** for any misuse, damage, or service disruption caused by this tool
-
----
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
----
-
-## Author
-
-Niggesh
-
----
-
-## Notes
-
-* Some networks may rate-limit or block discovery packets
-* Results depend on ISP configuration and response behavior
-* Running in virtualized environments may affect accuracy
-
----
+License: GNU General Public License v3.0
