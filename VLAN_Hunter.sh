@@ -1,146 +1,115 @@
 #!/bin/bash
 
+[ "$EUID" -ne 0 ] && echo "[!] ERROR: ROOT REQUIRED" && exit 1
+[ ! -w "." ] && echo "[!] ERROR: Current directory is not writable." && exit 1
+command -v python3 >/dev/null 2>&1 || { echo "[!] ERROR: python3 missing."; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "[!] ERROR: curl missing. Required for pip setup."; exit 1; }
+command -v ethtool >/dev/null 2>&1 || { echo "[!] ERROR: ethtool missing. Required for VLAN offloading."; exit 1; }
 
-# AUTHOR & METADATA
+export PACKET_DELAY=0.025
+export CONCURRENCY_FACTOR=16
 
-# Title:       VLAN Hunter
-# Author:      Niggesh
-# Description: Reliable PPPoE/IPoE VLAN Discovery Tool (Linux)
-
-
-# 1. PREFLIGHT CHECKS
-
-[ "$EUID" -ne 0 ] && echo "ERROR: ROOT REQUIRED" && exit 1
-[ ! -w "." ] && echo "ERROR: Current directory is not writable." && exit 1
-command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 missing."; exit 1; }
-
-
-# 2. ENGINE CONFIGURATION (Adjust these to tune performance)
-
-export BURST_SIZE=250    # VLANs processed per chunk/thread
-export BURST_PARALLEL_COUNT=4    # Max concurrent sending threads allowed
-export BURST_DELAY=0.5     # Seconds to wait between starting new threads
-export PRE_SLEEP=0.25   # Seconds to wait for sniffer to initialize before sending
-export POST_SLEEP=3.0  # Seconds to wait for ISP responses after all frames are sent
-
-
-# 3. GLOBAL VARIABLES & PATHS
-
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" &> /dev/null && pwd)"
-BASE="$SCRIPT_DIR/VLAN Hunter TMP"
+BASE=$(mktemp -d /tmp/VLAN_Hunter.XXXXXX)
 VENV="$BASE/venv"
-TEMP=$(mktemp -d "$BASE/run.XXXXXX")
-PYFS="$TEMP/engine.py"
 
-WDTH=$(tput cols)
-[ -z "$WDTH" ] && WDTH=80
-[ "$WDTH" -lt 40 ] && WDTH=40
-INWD=$((WDTH - 2))
+WDTH=$(tput cols 2>/dev/null || echo 80)
+[ "$WDTH" -lt 60 ] && WDTH=60
 export DS_W=$WDTH
 
-
-# 4. UI FUNCTIONS & CLEANUP
-
-LINE() { printf '%.0s=' $(seq 1 $(($WDTH))); echo; }
-
-CNTR() {
-    local TEXT="$1"
-    local SIZE="$2"
-    local PADD=$(( (SIZE - ${#TEXT}) / 2 ))
-    [ $PADD -lt 0 ] && PADD=0
-    printf "%${PADD}s%s\n" "" "$TEXT"
-}
-
-JUST() {
-    python3 -c "
-import sys, textwrap
-w = int(sys.argv[1])
-t = sys.stdin.read().split('\n\n')
-for p in t:
-    ls = textwrap.wrap(p.replace('\n', ' '), w)
-    for l in ls[:-1]:
-        ws = l.split()
-        if len(ws) > 1:
-            sa = w - sum(len(x) for x in ws)
-            sb, ex = divmod(sa, len(ws) - 1)
-            o = ''
-            for i, x in enumerate(ws[:-1]):
-                o += x + ' ' * (sb + (1 if i < ex else 0))
-            print(' ' + o + ws[-1])
-        else:
-            print(' ' + l)
-    if ls:
-        print(' ' + ls[-1])
-    print()
-" "$INWD"
-}
+LINE() { printf '%*s\n' "$WDTH" '' | tr ' ' '-'; }
 
 EXIT_FUNC() {
-    echo -e "\n[!] Cleaning up temporary runtime files..."
-    [ -d "$TEMP" ] && rm -rf "$TEMP"
+    echo -e "\n[*] Cleaning up temporary runtime files..."
+    [ -d "$BASE" ] && rm -rf "$BASE"
 }
+
 trap EXIT_FUNC EXIT SIGINT SIGTERM
-
-
-# 5. INITIALIZATION
 
 clear
 LINE
-CNTR "TERMS OF USE" "$WDTH"
+printf "%$(((WDTH + 26) / 2))s\n" "VLAN HUNTER - TERMS OF USE"
 LINE
 
-cat << EOF | JUST
-This utility identifies active VLAN IDs for PPPoE/IPoE by injecting raw discovery frames. This low-level network operation requires root privileges and may be flagged as unusual activity by upstream equipment.
-
-To ensure system integrity, a local virtual environment and isolated temporary directory are used. No global packages are installed, and all runtime files are purged automatically upon exit.
-
-By typing 'ACCEPT', the user acknowledges the risks of service disruption and accepts full liability for all consequences.
-EOF
+echo ""
+echo "This utility discovers active PPPoE/IPoE VLAN IDs via raw frame injection. As a low-level network diagnostic requiring root privileges, this activity may be logged as anomalous or disruptive by upstream ISP infrastructure."
+echo ""
+echo "To guarantee host system integrity, execution is strictly confined to an ephemeral virtual environment. No global packages are modified, and all temporary runtime artifacts are securely purged upon termination."
+echo ""
+echo "By typing 'ACCEPT', you acknowledge the potential for service disruption and assume complete liability for all operational consequences."
+echo ""
 
 LINE
 printf "Type 'ACCEPT' to continue: "
 read USIN
-if [ "$USIN" != "ACCEPT" ]; then exit 1; fi
+if [ "$USIN" != "ACCEPT" ]; then 
+    echo "[!] Aborted by user."
+    exit 1
+fi
 
-mkdir -p "$BASE"
+PYTHON_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 
+if ! python3 -m venv -h >/dev/null 2>&1; then
+    echo "[!] ERROR: Python 'venv' module is missing."
+    echo "    Debian/Ubuntu: apt-get install python3-venv"
+    echo "    RHEL/Fedora:   dnf install python3"
+    echo "    Alpine:        apk add python3"
+    exit 1
+fi
 
-# 6. PYTHON ENGINE GENERATION
+if [ -d "$VENV" ]; then
+    if [ ! -f "$VENV/bin/python3" ]; then
+        echo "[!] Removing incomplete environment..."
+        rm -rf "$VENV"
+    fi
+fi
+
+if [ ! -d "$VENV" ]; then
+    echo "[*] Creating isolated environment..."
+    if python3 -m ensurepip --version >/dev/null 2>&1; then
+        python3 -m venv "$VENV"
+    else
+        python3 -m venv --without-pip "$VENV"
+    fi
+fi
+
+if [ ! -f "$VENV/bin/pip" ]; then
+    echo "[*] Bootstrapping pip manually..."
+    curl -sS https://bootstrap.pypa.io/get-pip.py | "$VENV/bin/python3" > /dev/null 2>&1
+fi
+
+if ! "$VENV/bin/python3" -c "import scapy" >/dev/null 2>&1; then
+    echo "[*] Installing Scapy dependency..."
+    "$VENV/bin/pip" install scapy || { echo "[!] Scapy installation failed."; exit 1; }
+fi
+
+TEMP=$(mktemp -d "$BASE/run.XXXXXX")
+PYFS="$TEMP/engine.py"
 
 cat << 'EOF' > "$PYFS"
-import os, threading, queue, time, sys, signal, argparse, binascii, re
-from scapy.all import get_if_list, get_if_hwaddr, Ether, Dot1Q, PPPoED, IP, UDP, BOOTP, DHCP, sendp, sniff, conf
+import os, threading, queue, time, sys, argparse, binascii
+from scapy.all import get_if_list, get_if_hwaddr, Ether, Dot1Q, PPPoED, IP, UDP, BOOTP, DHCP, sendp, AsyncSniffer, conf
 
-# --- LOAD CONFIGURATION FROM BASH ---
-BURST_SIZE = int(os.getenv('BURST_SIZE', 250))
-BURST_PARALLEL_COUNT = int(os.getenv('BURST_PARALLEL_COUNT', 4))
-BURST_DELAY = float(os.getenv('BURST_DELAY', 0.5))
-PRE_SLEEP = float(os.getenv('PRE_SLEEP', 0.5))
-POST_SLEEP = float(os.getenv('POST_SLEEP', 3.0))
+PACKET_DELAY = float(os.getenv('PACKET_DELAY', 0.001))
+CONCURRENCY_FACTOR = int(os.getenv('CONCURRENCY_FACTOR', 16))
 DS_W = int(os.getenv('DS_W', 80))
 
 conf.verb = 0
 RE_Q = queue.Queue()
 STOP = threading.Event()
-SEM = threading.Semaphore(BURST_PARALLEL_COUNT)
-
-# Progress Tracking
 PROG_LOCK = threading.Lock()
-COMPLETED_CHUNKS = 0
-TOTAL_CHUNKS = 1
+COMPLETED = 0
 
 def TY_P(vlan, name):
     n = name.upper()
-    if any(x in n for x in ["IPTV", "TV", "VCI: IPTV"]): return "IPTV"
-    if any(x in n for x in ["VOIP", "VOICE", "VCI: VOIP"]): return "VOIP"
+    if any(x in n for x in ["IPTV", "TV", "VIDEO", "VOD"]): return "IPTV"
+    if any(x in n for x in ["VOIP", "VOICE", "SIP", "PHONE"]): return "VOIP"
+    if any(x in n for x in ["MGMT", "CWMP", "TR069", "ACS", "MANAGEMENT"]): return "MGMT"
     return "INTERNET" if vlan > 0 else "UNTAGGED"
 
 def CB_K(pkt):
     try:
         vlan = pkt[Dot1Q].vlan if Dot1Q in pkt else 0
-        
-        # PPPoE Detection
-        if pkt.haslayer(PPPoED) and pkt[PPPoED].code == 0x07:
+        if pkt.haslayer(PPPoED) and pkt[PPPoED].code in [0x07, 0x65]:
             raw, name = bytes(pkt[PPPoED].payload), 'UNKNOWN'
             i = 0
             while i + 4 <= len(raw):
@@ -150,8 +119,6 @@ def CB_K(pkt):
                     break
                 i += 4 + tl
             RE_Q.put({'v':vlan, 'm':pkt[Ether].src, 'n':name, 't':TY_P(vlan,name), 'p':'PPPoE'})
-            
-        # DHCP/IPoE Detection
         elif pkt.haslayer(BOOTP) and pkt[BOOTP].op == 2:
             name = "DHCP Server"
             if pkt.haslayer(DHCP):
@@ -161,158 +128,143 @@ def CB_K(pkt):
                         break
             if name == "DHCP Server" and pkt.haslayer(IP):
                 name = f"IPoE: {pkt[IP].src}"
-                
             RE_Q.put({'v':vlan, 'm':pkt[Ether].src, 'n':name, 't':TY_P(vlan,name), 'p':'DHCP'})
-    except Exception:
-        pass # Ignore malformed packets
+    except: pass
 
-def SN_F(ifce):
-    sniff(iface=ifce, filter="(ether proto 0x8863) or (vlan and (ether proto 0x8863 or udp port 67 or udp port 68))",
-          prn=CB_K, store=0, stop_filter=lambda x: STOP.is_set())
+def format_time(seconds):
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    if h > 0: return f"{h:02d}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
 
-def SEND_CHUNK(vlan_subgroup, macs, mac_bytes, ifce):
-    global COMPLETED_CHUNKS, TOTAL_CHUNKS
-    with SEM:
-        batch = []
-        for v in vlan_subgroup:
-            base = Ether(src=macs, dst="ff:ff:ff:ff:ff:ff")
-            pppo = PPPoED(version=1, type=1, code=0x09, sessionid=0)
-            dhcp = IP(src="0.0.0.0", dst="255.255.255.255") \
-                   / UDP(sport=68, dport=67) \
-                   / BOOTP(chaddr=mac_bytes + b'\x00'*10, xid=v) \
-                   / DHCP(options=[("message-type", "discover"), "end"])
-            
-            if v > 0:
-                batch.append(base/Dot1Q(vlan=v, type=0x8863)/pppo)
-                batch.append(base/Dot1Q(vlan=v, type=0x0800)/dhcp)
-            else:
-                batch.append(base/pppo)
-                batch.append(base/dhcp)
+def PROGRESS_MONITOR(total):
+    start_time = time.time()
+    while not STOP.is_set() and COMPLETED < total:
+        curr = COMPLETED
+        if curr == 0:
+            sys.stdout.write(f"\r[*] Scanning... 0/{total} (0.0%)")
+        else:
+            pct = (curr / total) * 100
+            sys.stdout.write(f"\r[*] Scanning... {curr}/{total} ({pct:.1f}%)")
+        sys.stdout.flush()
+        time.sleep(0.025)
         
-        sendp(batch, iface=ifce, verbose=0)
-        
+    if COMPLETED >= total:
+        sys.stdout.write(f"\r[*] Scanning... {total}/{total} (100.0%)\n")
+        sys.stdout.flush()
+
+def WORKER(ifce, v_list, hw_mac, mac_bytes):
+    global COMPLETED
+    for v in v_list:
+        if STOP.is_set(): break
+        base = Ether(src=hw_mac, dst="ff:ff:ff:ff:ff:ff")
+        base_pppoe = Ether(src=hw_mac, dst="ff:ff:ff:ff:ff:ff", type=0x8863)
+        base_ipv4 = Ether(src=hw_mac, dst="ff:ff:ff:ff:ff:ff", type=0x0800)
+        p = PPPoED(version=1, type=1, code=0x09, sessionid=0)
+        d = IP(src="0.0.0.0", dst="255.255.255.255")/UDP(sport=68, dport=67)/BOOTP(chaddr=mac_bytes + b'\x00'*10, xid=v)/DHCP(options=[("message-type", "discover"), "end"])
+        pkts = [base/Dot1Q(vlan=v, type=0x8863)/p, base/Dot1Q(vlan=v, type=0x0800)/d] if v > 0 else [base_pppoe/p, base_ipv4/d]
+        sendp(pkts, iface=ifce, verbose=0)
         with PROG_LOCK:
-            COMPLETED_CHUNKS += 1
-            pct = (COMPLETED_CHUNKS / TOTAL_CHUNKS) * 100
-            sys.stdout.write(f"\r\033[K[*] Scanning... [ {pct:.1f}% | {COMPLETED_CHUNKS}/{TOTAL_CHUNKS} Chunks ]")
-            sys.stdout.flush()
-
-def val_mac(mstr):
-    clnm = re.sub(r'[^0-9a-fA-F]', '', mstr)
-    if len(clnm) == 12:
-        return ":".join(clnm[i:i+2] for i in range(0, 12, 2)).lower()
-    raise argparse.ArgumentTypeError("Invalid MAC format. Use format 00:11:22:33:44:55")
+            COMPLETED += 1
+        if PACKET_DELAY > 0: time.sleep(PACKET_DELAY)
 
 def MAIN():
-    global POST_SLEEP, TOTAL_CHUNKS
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", dest="ifce"); parser.add_argument("-v", dest="vlan")
+    args = parser.parse_args()
+    list_if = [(i, get_if_hwaddr(i)) for i in get_if_list() if get_if_hwaddr(i) != '00:00:00:00:00:00']
+    ifce = args.ifce; hw_mac = None
     
-    pars = argparse.ArgumentParser()
-    pars.add_argument("-i", dest="ifce", help="Network interface")
-    pars.add_argument("-v", dest="vlan", help="VLAN or range (e.g. 100 or 10-200)")
-    pars.add_argument("-m", "--mac", dest="mac", type=val_mac, help="Spoof source MAC address")
-    pars.add_argument("-t", "--timeout", dest="timeout", type=float, help="Listen timeout in seconds")
-    args = pars.parse_args()
-
-    if args.timeout is not None:
-        POST_SLEEP = args.timeout
-
-    list_if = [(i, get_if_hwaddr(i)) for i in get_if_list() if i != 'lo']
-
-    ifce = args.ifce
-    hw_mac = None
-
-    # Handle Interface Selection
+    print()
     if ifce:
         for n, m in list_if:
             if n == ifce: hw_mac = m
     else:
-        print("\n" + "NETWORK INTERFACE SELECTION".center(DS_W))
-        print("-" * DS_W)
-        for i, (n, m) in enumerate(list_if, 1):
-            print(f" {i:>2}. {n:<18} [ {m} ]")
+        print("INTERFACE SELECTION")
+        print("-" * 40)
+        for i, (n, m) in enumerate(list_if, 1): print(f" {i:>2}. {n:<18} [ {m} ]")
         try:
-            sel = int(input(f"\nENTER INDEX: ")) - 1
+            sel = int(input("\nENTER INDEX: ")) - 1
             ifce, hw_mac = list_if[sel]
         except: return
+        
+    if not hw_mac: return
+    clean_mac = hw_mac.replace(':', '')
+    if len(clean_mac) != 12:
+        print(f"\n[!] Invalid MAC address length ({len(clean_mac)}) for selected interface. Skipping.")
+        return
+    mac_bytes = binascii.unhexlify(clean_mac)
 
-    if not hw_mac and not args.mac: return
+    v_rg = list(range(0, 4096)) if not args.vlan else ([int(args.vlan)] if "-" not in args.vlan else list(range(int(args.vlan.split("-")[0]), int(args.vlan.split("-")[1]) + 1)))
 
-    # Determine final MAC (Spoofed or Hardware)
-    macs = args.mac if args.mac else hw_mac
-
-    if args.vlan:
-        if "-" in args.vlan:
-            beg, end = map(int, args.vlan.split("-"))
-            v_rg = list(range(beg, end + 1))
-        else:
-            v_rg = [int(args.vlan)]
-    else:
-        v_rg = list(range(0, 4096))
-
-    TOTAL_CHUNKS = (len(v_rg) + BURST_SIZE - 1) // BURST_SIZE
-
-    print("\n" + "VLAN DISCOVERY ENGINE".center(DS_W))
-    print(f"IFACE: {ifce} | SOURCE MAC: {macs}{' (SPOOFED)' if args.mac else ''}".center(DS_W))
-    print("-" * DS_W)
-
-    t1 = threading.Thread(target=SN_F, args=(ifce,))
-    t1.daemon = True
-    t1.start()
-    time.sleep(PRE_SLEEP)
-
-    mac_bytes = binascii.unhexlify(macs.replace(':', ''))
+    print("\nINITIALIZING ENGINE")
+    print("-" * 40)
+    print(f" Interface:  {ifce}")
+    print(f" Source MAC: {hw_mac}\n")
     
-    # Trigger Parallel Sending
+    os.system(f"ethtool -K {ifce} rxvlan off >/dev/null 2>&1")
+
+    sniffer = AsyncSniffer(iface=ifce, prn=CB_K, store=0)
+    sniffer.start()
+
+    time.sleep(0.025)
+
+    total_vlans = len(v_rg)
+    
+    t_monitor = threading.Thread(target=PROGRESS_MONITOR, args=(total_vlans,))
+    t_monitor.daemon = True
+    t_monitor.start()
+
+    chunks = [v_rg[i::CONCURRENCY_FACTOR] for i in range(CONCURRENCY_FACTOR)]
     threads = []
-    sys.stdout.write(f"\r\033[K[*] Scanning... [ 0.0% | 0/{TOTAL_CHUNKS} Chunks ]")
-    sys.stdout.flush()
+    for chunk in chunks:
+        if not chunk: continue
+        t = threading.Thread(target=WORKER, args=(ifce, chunk, hw_mac, mac_bytes))
+        t.start(); threads.append(t)
+        
+    for t in threads: t.join()
     
-    for i in range(0, len(v_rg), BURST_SIZE):
-        vlan_subgroup = v_rg[i : i + BURST_SIZE]
-        t = threading.Thread(target=SEND_CHUNK, args=(vlan_subgroup, macs, mac_bytes, ifce))
-        t.start()
-        threads.append(t)
-        time.sleep(BURST_DELAY)
+    global COMPLETED
+    COMPLETED = total_vlans
+    t_monitor.join()
 
-    # Wait for completion
-    for t in threads:
-        t.join()
+    sys.stdout.write(f"\n[*] Probe dispatch complete. Waiting for ISP responses...\n")
 
-    sys.stdout.write(f"\n[*] All frames dispatched. Waiting {POST_SLEEP}s for ISP responses...\n")
     sys.stdout.flush()
-    time.sleep(POST_SLEEP)
+    time.sleep(3)
     STOP.set()
+    sniffer.stop()
+    os.system(f"ethtool -K {ifce} rxvlan on >/dev/null 2>&1")
 
     data = {}
     while not RE_Q.empty():
         item = RE_Q.get()
-        data[f"{item['v']}-{item['m']}-{item.get('p', 'UNK')}"] = item
+        data[f"{item['v']}-{item['p']}-{item['n']}"] = item
 
-    ac_w = max(10, DS_W - 55)
-    h_fm = "{:^5} {:^7} {:^8} {:^10} {:^" + str(ac_w) + "} {:^18}"
-    print("\n" + h_fm.format("#", "VLAN", "PROTO", "TYPE", "IDENTITY", "MAC ADDRESS"))
-    print("-" * DS_W)
-
-    for i, k in enumerate(sorted(data.keys(), key=lambda x: int(x.split('-')[0])), 1):
-        d = data[k]
-        print(h_fm.format(str(i), str(d['v']), d['p'], d['t'], d['n'][:ac_w], d['m']))
+    ac_w = max(15, DS_W - 55)
+    h_fm = f" {{:<6}} {{:<7}} {{:<12}} {{:<{ac_w}}} {{:<17}} "
     
-    if not data:
-        print(h_fm.format("-", "NONE", "-", "-", "NO ACTIVE SERVICES DETECTED", "-"))
+    print("\nDISCOVERY RESULTS")
+    print("-" * DS_W)
+    print(h_fm.format("VLAN", "PROTO", "TYPE", "IDENTITY", "MAC ADDRESS"))
+    print("-" * DS_W)
+    
+    sk = sorted(data.keys(), key=lambda x: (int(x.split('-')[0]), x.split('-')[1]))
+    for i, k in enumerate(sk, 1):
+        d = data[k]
+        print(h_fm.format(str(d['v']), d['p'], d['t'], d['n'][:ac_w-1], d['m']))
         
+    if not data: 
+        print(" No active PPPoE or IPoE services detected.")
     print("-" * DS_W + "\n")
 
 if __name__ == "__main__":
-    MAIN()
+    try: MAIN()
+    except KeyboardInterrupt: 
+        STOP.set()
+        print("\n[!] Scan interrupted by user.")
+        sys.exit(0)
 EOF
 
-
-# 7. EXECUTION
-
-if [ ! -d "$VENV" ]; then
-    echo "[*] Initializing local virtual environment. This may take a moment..."
-    python3 -m venv "$VENV" >/dev/null 2>&1
-    "$VENV/bin/pip" install --no-cache-dir -q scapy
-fi
-
+echo "[*] Launching Engine..."
 "$VENV/bin/python3" "$PYFS" "$@"
