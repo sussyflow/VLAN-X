@@ -13,6 +13,7 @@ export PACKET_DELAY=0.025
 export CONCURRENCY_FACTOR=8
 
 BASE=$(mktemp -d "$WORK_DIR/VLAN_Hunter.XXXXXX")
+echo "[*] Working directory: $BASE"
 VENV="$BASE/venv"
 
 WDTH=$(tput cols 2>/dev/null || echo 80)
@@ -22,8 +23,10 @@ export DS_W=$WDTH
 LINE() { printf '%*s\n' "$WDTH" '' | tr ' ' '-'; }
 
 EXIT_FUNC() {
-    echo -e "\n[*] Cleaning up temporary runtime files..."
-    [ -d "$BASE" ] && rm -rf "$BASE"
+    echo -e "\n[*] Cleaning up: $BASE"
+    if [ -d "$BASE" ]; then
+        rm -rf "$BASE"
+    fi
 }
 
 trap EXIT_FUNC EXIT SIGINT SIGTERM
@@ -82,15 +85,37 @@ if [ ! -d "$VENV" ]; then
     fi
 fi
 
-if [ ! -f "$VENV/bin/pip" ]; then
-    echo "[*] Bootstrapping pip manually..."
-    curl -sS https://bootstrap.pypa.io/get-pip.py | "$VENV/bin/python3" > /dev/null 2>&1
-fi
+# Try venv scapy
+if "$VENV/bin/python3" -c "import scapy" >/dev/null 2>&1; then
+    echo "[*] Scapy already available in venv."
 
-if ! "$VENV/bin/python3" -c "import scapy" >/dev/null 2>&1; then
-    echo "[*] Installing Scapy dependency..."
-    "$VENV/bin/pip" install scapy -q >/dev/null 2>&1 || { echo "[!] Scapy installation failed."; exit 1; }
+# Try system scapy (offline-friendly)
+elif python3 -c "import scapy" >/dev/null 2>&1; then
+    echo "[*] Using system-installed Scapy (offline mode)."
+    USE_SYSTEM_SCAPY=1
 
+else
+    echo "[*] Scapy not found locally."
+
+    # Only attempt download if internet works
+    if curl -s --max-time 2 https://pypi.org >/dev/null 2>&1; then
+        echo "[*] Internet detected. Installing Scapy..."
+
+        # Ensure pip exists
+        if [ ! -f "$VENV/bin/pip" ]; then
+            echo "[*] Bootstrapping pip..."
+            curl -sS https://bootstrap.pypa.io/get-pip.py | "$VENV/bin/python3" >/dev/null 2>&1
+        fi
+
+        "$VENV/bin/pip" install scapy -q >/dev/null 2>&1 || {
+            echo "[!] Scapy installation failed."
+            exit 1
+        }
+    else
+        echo "[!] No internet + no local Scapy found."
+        echo "    Install manually: apt install python3-scapy"
+        exit 1
+    fi
 fi
 
 TEMP=$(mktemp -d "$BASE/run.XXXXXX") && chmod 700 "$TEMP"
@@ -283,4 +308,8 @@ if __name__ == "__main__":
 EOF
 
 echo "[*] Launching Engine..."
-"$VENV/bin/python3" "$PYFS" "$@"
+if [ "$USE_SYSTEM_SCAPY" = "1" ]; then
+    python3 "$PYFS" "$@"
+else
+    "$VENV/bin/python3" "$PYFS" "$@"
+fi
