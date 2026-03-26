@@ -173,12 +173,13 @@ def PROGRESS_MONITOR(total):
     start_time = time.time()
     while not STOP.is_set() and COMPLETED < total:
         curr = COMPLETED
+        pct = (curr / total) * 100 if total else 0
         sys.stdout.write(f"\rScanning: {curr}/{total} ({pct:.1f}%)")
         sys.stdout.flush()
         time.sleep(0.025)
         
     if COMPLETED >= total:
-        sys.stdout.write(f"\r[*] Scanning... {total}/{total} (100.0%)\n")
+        sys.stdout.write(f"\rScanning: {total}/{total} (100.0%)\n")
         sys.stdout.flush()
 
 def WORKER(ifce, v_list, hw_mac, mac_bytes):
@@ -208,8 +209,8 @@ def MAIN():
         print(f" {i:>2}. {n:<18} [ {m} ]")
     
     try:
-		print("\nSelect interface index:", end=" ", flush=True)
-		sel = int(open("/dev/tty").readline().strip()) - 1
+        print("\nSelect interface index:", end=" ", flush=True)
+        sel = int(open("/dev/tty").readline().strip()) - 1
 
         if sel < 0 or sel >= len(list_if):
             print("\n[!] Selection out of range.")
@@ -259,7 +260,7 @@ def MAIN():
     COMPLETED = total_vlans
     t_monitor.join()
 
-	sys.stdout.write("\nScan complete. Waiting for responses...\n")
+    sys.stdout.write("\nScan complete. Waiting for responses...\n")
 
     sys.stdout.flush()
     time.sleep(3)
@@ -275,8 +276,8 @@ def MAIN():
     ac_w = max(15, DS_W - 55)
     h_fm = f" {{:<6}} {{:<7}} {{:<12}} {{:<{ac_w}}} {{:<17}} "
     
-	print("\nResults")
-	print("-" * DS_W)
+    print("\nResults")
+    print("-" * DS_W)
     print(h_fm.format("VLAN", "PROTO", "TYPE", "IDENTITY", "MAC ADDRESS"))
     print("-" * DS_W)
     
