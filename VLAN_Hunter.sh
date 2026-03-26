@@ -9,8 +9,8 @@
 for cmd in python3 curl ethtool tput mktemp clear; do command -v "$cmd" >/dev/null 2>&1 || { echo "[!] ERROR: $cmd missing."; exit 1; }; done
 [[ ! -t 0 || ! -w "." ]] && WORK_DIR="/tmp" || WORK_DIR="."
 
-export PACKET_DELAY=0.025
-export CONCURRENCY_FACTOR=8
+export PACKET_DELAY=0.25
+export CONCURRENCY_FACTOR=16
 
 BASE=$(mktemp -d "$WORK_DIR/VLAN_Hunter.XXXXXX")
 echo "Working directory: $BASE"
