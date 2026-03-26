@@ -6,15 +6,13 @@
 # Description:  Reliable PPPoE/IPoE VLAN Discovery Tool (Linux)
 
 [ "$EUID" -ne 0 ] && echo "[!] ERROR: ROOT REQUIRED" && exit 1
-[ ! -w "." ] && echo "[!] ERROR: Current directory is not writable." && exit 1
-command -v python3 >/dev/null 2>&1 || { echo "[!] ERROR: python3 missing."; exit 1; }
-command -v curl >/dev/null 2>&1 || { echo "[!] ERROR: curl missing. Required for pip setup."; exit 1; }
-command -v ethtool >/dev/null 2>&1 || { echo "[!] ERROR: ethtool missing. Required for VLAN offloading."; exit 1; }
+for cmd in python3 curl ethtool tput mktemp clear; do command -v "$cmd" >/dev/null 2>&1 || { echo "[!] ERROR: $cmd missing."; exit 1; }; done
+[[ ! -t 0 || ! -w "." ]] && WORK_DIR="/tmp" || WORK_DIR="."
 
 export PACKET_DELAY=0.025
 export CONCURRENCY_FACTOR=8
 
-BASE=$(mktemp -d /tmp/VLAN_Hunter.XXXXXX)
+BASE=$(mktemp -d "$WORK_DIR/VLAN_Hunter.XXXXXX")
 VENV="$BASE/venv"
 
 WDTH=$(tput cols 2>/dev/null || echo 80)
@@ -24,7 +22,7 @@ export DS_W=$WDTH
 LINE() { printf '%*s\n' "$WDTH" '' | tr ' ' '-'; }
 
 EXIT_FUNC() {
-    echo -e "[*] Cleaning up temporary runtime files..."
+    echo -e "\n[*] Cleaning up temporary runtime files..."
     [ -d "$BASE" ] && rm -rf "$BASE"
 }
 
@@ -45,7 +43,7 @@ echo ""
 
 LINE
 printf "Type 'ACCEPT' to continue: "
-read USIN
+read USIN < /dev/tty
 
 USIN=$(echo "$USIN" | tr '[:lower:]' '[:upper:]')
 
@@ -95,7 +93,7 @@ if ! "$VENV/bin/python3" -c "import scapy" >/dev/null 2>&1; then
 
 fi
 
-TEMP=$(mktemp -d "$BASE/run.XXXXXX")
+TEMP=$(mktemp -d "$BASE/run.XXXXXX") && chmod 700 "$TEMP"
 PYFS="$TEMP/engine.py"
 
 cat << 'EOF' > "$PYFS"
