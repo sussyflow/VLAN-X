@@ -122,7 +122,7 @@ TEMP=$(mktemp -d "$BASE/run.XXXXXX") && chmod 700 "$TEMP"
 PYFS="$TEMP/engine.py"
 
 cat << 'EOF' > "$PYFS"
-import os, threading, queue, time, sys, argparse, binascii
+import os, threading, queue, time, sys, binascii
 from scapy.all import get_if_list, get_if_hwaddr, Ether, Dot1Q, PPPoED, IP, UDP, BOOTP, DHCP, sendp, AsyncSniffer, conf
 
 PACKET_DELAY = float(os.getenv('PACKET_DELAY', 0.001))
@@ -205,29 +205,24 @@ def WORKER(ifce, v_list, hw_mac, mac_bytes):
         if PACKET_DELAY > 0: time.sleep(PACKET_DELAY)
 
 def MAIN():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", dest="ifce"); parser.add_argument("-v", dest="vlan")
-    args = parser.parse_args()
     list_if = [(i, get_if_hwaddr(i)) for i in get_if_list() if get_if_hwaddr(i) != '00:00:00:00:00:00']
-    ifce = args.ifce; hw_mac = None
+    ifce = None
+    hw_mac = None
     
-    print()
-    if ifce:
-        for n, m in list_if:
-            if n == ifce: hw_mac = m
-    else:
-        print("INTERFACE SELECTION")
-        print("-" * 40)
-        for i, (n, m) in enumerate(list_if, 1): print(f" {i:>2}. {n:<18} [ {m} ]")
-        try:
-            sel = int(input("\nEnter Interface Index: ")) - 1
-            if sel < 0 or sel >= len(list_if):
-                print("\n[!] Selection out of range.")
-                return
-            ifce, hw_mac = list_if[sel]
-        except:
-            print("\n[!] Invalid selection.")
+    print("INTERFACE SELECTION")
+    print("-" * 40)
+    for i, (n, m) in enumerate(list_if, 1):
+        print(f" {i:>2}. {n:<18} [ {m} ]")
+    
+    try:
+        sel = int(open("/dev/tty").readline().strip()) - 1
+        if sel < 0 or sel >= len(list_if):
+            print("\n[!] Selection out of range.")
             return
+        ifce, hw_mac = list_if[sel]
+    except:
+        print("\n[!] Invalid selection.")
+        return
 
     if not hw_mac: return
     clean_mac = hw_mac.replace(':', '')
@@ -236,7 +231,7 @@ def MAIN():
         return
     mac_bytes = binascii.unhexlify(clean_mac)
 
-    v_rg = list(range(0, 4096)) if not args.vlan else ([int(args.vlan)] if "-" not in args.vlan else list(range(int(args.vlan.split("-")[0]), int(args.vlan.split("-")[1]) + 1)))
+    v_rg = list(range(0, 4096))
 
     print("\nINITIALIZING ENGINE")
     print("-" * 40)
@@ -309,7 +304,7 @@ EOF
 
 echo "[*] Launching Engine..."
 if [ "$USE_SYSTEM_SCAPY" = "1" ]; then
-    python3 "$PYFS" "$@"
+    python3 "$PYFS"
 else
-    "$VENV/bin/python3" "$PYFS" "$@"
+    "$VENV/bin/python3" "$PYFS"
 fi
