@@ -20,7 +20,9 @@ WDTH=$(tput cols 2>/dev/null || echo 80)
 [ "$WDTH" -lt 60 ] && WDTH=60
 export DSWD=$WDTH
 
-LINE() { printf '%*s\n' "$WDTH" '' | tr ' ' '━'; }
+LINE() {
+  printf '%*s\n' "$WDTH" '' | tr ' ' '='
+}
 
 CLND=0
 
