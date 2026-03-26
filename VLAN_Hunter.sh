@@ -28,7 +28,6 @@ CLND=0
 
 EXIT() {
     if [ "$CLND" -eq 0 ]; then
-        echo ""
         echo "[*] Terminating & cleaning up environment..."
         rm -rf "$BASE"
         CLND=1
