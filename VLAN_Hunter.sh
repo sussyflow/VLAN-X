@@ -215,7 +215,7 @@ def MAIN():
     HMAC = None
     
     print("\nNETWORK INTERFACES")
-    print("=" * 40)
+    print("=" * 45)
 
     for INDX, (NNNN, MMMM) in enumerate(LSTF, 1):
         print(f" {INDX:>2}. {NNNN:<18} [ {MMMM} ]")
@@ -242,7 +242,7 @@ def MAIN():
     VRGG = list(range(0, 4096))
 
     print("\nINITIALIZING SCAN")
-    print("=" * 40)
+    print("=" * 45)
     print(f" Interface  : {IFCE}")
     print(f" Source MAC : {HMAC}\n")
     
