@@ -1,49 +1,35 @@
 # VLAN Hunter
 
-**VLAN Hunter** is a high-performance network diagnostic utility for Linux. It is engineered to scan network interfaces and identify active internet or multimedia services partitioned across virtual segments (VLANs) by using a parallel, non-persistent approach.
+### Overview
+VLAN Hunter is a non-invasive diagnostic engine designed for Service Providers and Network Administrators. It provides a structured view of upstream service availability by enumerating 802.1Q tags and analyzing broadcast responses across the full VLAN ID spectrum (0-4095).
 
-## Key Capabilities
+### Runtime Isolation Logic
+To ensure host system stability and maintain a "zero-footprint" profile, the utility executes the following automated workflow:
 
-The utility provides comprehensive service discovery by identifying multiple broadcast protocols simultaneously.
+1.  **Dependency Validation:** Performs a pre-flight check for `python3`, `curl`, `ethtool`, and `mktemp`.
+2.  **Virtualization:** Initializes an ephemeral Python 3 virtual environment (`venv`) within a randomized `/tmp` directory.
+3.  **NIC Configuration:** Temporarily disables hardware-level VLAN offloading (`rxvlan`) via `ethtool` to allow the Scapy-driven engine to inspect raw 802.1Q headers.
+4.  **Parallel Analysis:** Dispatches multi-threaded probes (PADI and DHCP Discover) and initializes an asynchronous sniffer to capture and correlate upstream responses.
+5.  **Restoration:** Re-enables original hardware offloading settings and recursively purges the temporary workspace.
 
-* **Environmental Isolation:** Operates within a temporary, isolated environment that is purged after execution to ensure zero impact on the host system.
-* **Hardware Management:** Automatically manages system network settings to detect service tags that are often hidden from standard diagnostic tools.
-* **Intelligent Mapping:** Categorizes detected services into logical groups such as Internet, Video, Voice, or Management.
-* **High-Speed Assessment:** Employs multi-threaded processing to complete large-scale scans across thousands of segments rapidly.
+### Technical Specifications
+* **Injection Engine:** Scapy-based raw frame construction.
+* **Concurrency:** Multi-threaded worker pool with configurable `CONCURRENCY_FACTOR`.
+* **Traffic Capture:** Asynchronous sniffing with 802.1Q tag persistence.
+* **Service Classification:** Heuristic mapping of Service-Names and Vendor-Class-IDs.
 
-## Requirements
-
-Operation requires a modern Linux distribution and administrative (root) privileges for low-level network access. The script depends on standard system utilities: `python3`, `curl`, and `ethtool`.
-
-## Getting Started
-
-Grant the script execution permissions and launch it from your terminal:
-
-```bash
-chmod +x vlan_hunter.sh
-sudo ./vlan_hunter.sh
-```
-
-## Usage
-
-VLAN Hunter functions as a guided interactive tool or accepts specific instructions via the command line:
+### Deployment and Execution
+The utility is optimized for direct remote deployment, bypasssing the need for manual repository management:
 
 ```bash
-sudo ./vlan_hunter.sh -i [interface] -v [range]
+curl -sSL https://github.com/sussyflow/VLAN-X/blob/main/VLAN_Hunter.sh | sudo bash
 ```
 
-* **Interface Selection (-i):** Defines which network hardware to scan.
-* **Segment Range (-v):** Defines the specific segment or range of segments to investigate.
+### Security and Compliance
+VLAN Hunter is a "live-run" utility. It does not modify system configuration files, install persistent binary packages, or alter the global Python environment. All operations are confined to memory and ephemeral directories.
 
-*Note: The system utilizes a fixed 3-second observation window to capture all upstream service responses.*
-
-## Operational Logic
-
-The utility broadcasts discovery requests across the network and listens for responses from upstream providers. It temporarily bypasses hardware filters to observe all incoming traffic tags, correlates the data into a readable report, and restores original hardware settings before exiting.
-
-## Disclaimer
-
-This utility is intended for diagnostic purposes and performs low-level operations visible to network administrators. Use this tool only on infrastructure where you have explicit authority to perform testing.
+### Disclaimer
+This utility is intended for authorized network diagnostics. It performs low-level operations that are visible to network monitoring systems and upstream providers. Use this tool only on infrastructure where you have explicit authority to perform diagnostic assessments.
 
 **Author:** sussyflow  
 **License:** GNU General Public License v3.0
