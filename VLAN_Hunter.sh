@@ -209,7 +209,7 @@ def MAIN():
     HMAC = None
     
     print("\nNETWORK INTERFACES")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("=" * 40)
 
     for INDX, (NNNN, MMMM) in enumerate(LSTF, 1):
         print(f" {INDX:>2}. {NNNN:<18} [ {MMMM} ]")
@@ -236,7 +236,7 @@ def MAIN():
     VRGG = list(range(0, 4096))
 
     print("\nINITIALIZING SCAN")
-    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("=" * 40)
     print(f" Interface  : {IFCE}")
     print(f" Source MAC : {HMAC}\n")
     
@@ -283,9 +283,9 @@ def MAIN():
     HFFM = f" {{:<6}} {{:<7}} {{:<12}} {{:<{ACWW}}} {{:<17}} "
     
     print("\nDISCOVERY RESULTS")
-    print("━" * DSWD)
+    print("-" * DSWD)
     print(HFFM.format('VLAN', 'PROTO', 'TYPE', 'IDENTITY', 'MAC ADDRESS'))
-    print("━" * DSWD)
+    print("-" * DSWD)
     
     SKKK = sorted(DATA.keys(), key=lambda XXXX: (int(XXXX.split('-')[0]), XXXX.split('-')[1]))
     for INDX, KKKK in enumerate(SKKK, 1):
@@ -294,7 +294,7 @@ def MAIN():
         
     if not DATA: 
         print("[!] No services detected.")
-    print("━" * DSWD + "\n")
+    print("-" * DSWD + "\n")
 
 if __name__ == "__main__":
     try: MAIN()
