@@ -124,8 +124,8 @@ cat << 'EOF' > "$PYFS"
 import os, threading, queue, time, sys, binascii
 from scapy.all import get_if_list, get_if_hwaddr, Ether, Dot1Q, PPPoED, IP, UDP, BOOTP, DHCP, sendp, AsyncSniffer, conf
 
-PDLY = 0.25
-CFTR = 16
+PDLY = 0.125
+CFTR = 32
 DSWD = int(os.getenv('DSWD', 80))
 
 conf.verb = 0
