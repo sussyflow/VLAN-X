@@ -22,10 +22,13 @@ export DS_W=$WDTH
 
 LINE() { printf '%*s\n' "$WDTH" '' | tr ' ' '-'; }
 
+CLEANED=0
+
 EXIT_FUNC() {
-    echo -e "\n[*] Cleaning up: $BASE"
-    if [ -d "$BASE" ]; then
+    if [ "$CLEANED" -eq 0 ]; then
+        echo -e "\n[*] Cleaning up: $BASE"
         rm -rf "$BASE"
+        CLEANED=1
     fi
 }
 
@@ -45,7 +48,7 @@ echo "By typing 'ACCEPT', you acknowledge the potential for service disruption a
 echo ""
 
 LINE
-printf "%-30s" "Enter ACCEPT to continue: "
+printf "Enter ACCEPT to continue: "
 read USIN < /dev/tty
 
 USIN=$(echo "$USIN" | tr '[:lower:]' '[:upper:]')
@@ -93,7 +96,7 @@ elif python3 -c "import scapy" >/dev/null 2>&1; then
     USE_SYSTEM_SCAPY=1
 
 else
-    echo "[*] Scapy not found locally."
+    echo "Scapy not found locally."
 
     if curl -s --max-time 2 https://pypi.org >/dev/null 2>&1; then
         echo "Installing dependency: scapy"
