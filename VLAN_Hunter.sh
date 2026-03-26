@@ -13,7 +13,7 @@ export PACKET_DELAY=0.025
 export CONCURRENCY_FACTOR=8
 
 BASE=$(mktemp -d "$WORK_DIR/VLAN_Hunter.XXXXXX")
-echo "[*] Working directory: $BASE"
+echo "Working directory: $BASE"
 VENV="$BASE/venv"
 
 WDTH=$(tput cols 2>/dev/null || echo 80)
@@ -45,17 +45,17 @@ echo "By typing 'ACCEPT', you acknowledge the potential for service disruption a
 echo ""
 
 LINE
-printf "Type 'ACCEPT' to continue: "
+printf "%-30s" "Enter ACCEPT to continue: "
 read USIN < /dev/tty
 
 USIN=$(echo "$USIN" | tr '[:lower:]' '[:upper:]')
 
 if [ "$USIN" != "ACCEPT" ]; then 
-    echo "[!] Aborted by user."
+    echo "Operation aborted."
     echo
     exit 1
 else
-    echo "[+] Usage Terms accepted. Continuing..."
+    echo "Terms accepted. Starting..."
     echo
 fi
 
@@ -77,7 +77,7 @@ if [ -d "$VENV" ]; then
 fi
 
 if [ ! -d "$VENV" ]; then
-    echo "[*] Creating isolated environment..."
+    echo "Initializing environment..."
     if python3 -m ensurepip --version >/dev/null 2>&1; then
         python3 -m venv "$VENV"
     else
@@ -85,11 +85,9 @@ if [ ! -d "$VENV" ]; then
     fi
 fi
 
-# Try venv scapy
 if "$VENV/bin/python3" -c "import scapy" >/dev/null 2>&1; then
     echo "[*] Scapy already available in venv."
 
-# Try system scapy (offline-friendly)
 elif python3 -c "import scapy" >/dev/null 2>&1; then
     echo "[*] Using system-installed Scapy (offline mode)."
     USE_SYSTEM_SCAPY=1
@@ -97,13 +95,11 @@ elif python3 -c "import scapy" >/dev/null 2>&1; then
 else
     echo "[*] Scapy not found locally."
 
-    # Only attempt download if internet works
     if curl -s --max-time 2 https://pypi.org >/dev/null 2>&1; then
-        echo "[*] Internet detected. Installing Scapy..."
+        echo "Installing dependency: scapy"
 
-        # Ensure pip exists
         if [ ! -f "$VENV/bin/pip" ]; then
-            echo "[*] Bootstrapping pip..."
+            echo "Setting up pip..."
             curl -sS https://bootstrap.pypa.io/get-pip.py | "$VENV/bin/python3" >/dev/null 2>&1
         fi
 
@@ -177,11 +173,7 @@ def PROGRESS_MONITOR(total):
     start_time = time.time()
     while not STOP.is_set() and COMPLETED < total:
         curr = COMPLETED
-        if curr == 0:
-            sys.stdout.write(f"\r[*] Scanning... 0/{total} (0.0%)")
-        else:
-            pct = (curr / total) * 100
-            sys.stdout.write(f"\r[*] Scanning... {curr}/{total} ({pct:.1f}%)")
+        sys.stdout.write(f"\rScanning: {curr}/{total} ({pct:.1f}%)")
         sys.stdout.flush()
         time.sleep(0.025)
         
@@ -209,13 +201,16 @@ def MAIN():
     ifce = None
     hw_mac = None
     
-    print("INTERFACE SELECTION")
+    print("\nAvailable Interfaces")
     print("-" * 40)
+
     for i, (n, m) in enumerate(list_if, 1):
         print(f" {i:>2}. {n:<18} [ {m} ]")
     
     try:
-        sel = int(open("/dev/tty").readline().strip()) - 1
+		print("\nSelect interface index:", end=" ", flush=True)
+		sel = int(open("/dev/tty").readline().strip()) - 1
+
         if sel < 0 or sel >= len(list_if):
             print("\n[!] Selection out of range.")
             return
@@ -233,7 +228,7 @@ def MAIN():
 
     v_rg = list(range(0, 4096))
 
-    print("\nINITIALIZING ENGINE")
+    print("\nInitializing scan")
     print("-" * 40)
     print(f" Interface:  {ifce}")
     print(f" Source MAC: {hw_mac}\n")
@@ -264,7 +259,7 @@ def MAIN():
     COMPLETED = total_vlans
     t_monitor.join()
 
-    sys.stdout.write(f"\n[*] Probe dispatch complete. Waiting for ISP responses...\n")
+	sys.stdout.write("\nScan complete. Waiting for responses...\n")
 
     sys.stdout.flush()
     time.sleep(3)
@@ -280,8 +275,8 @@ def MAIN():
     ac_w = max(15, DS_W - 55)
     h_fm = f" {{:<6}} {{:<7}} {{:<12}} {{:<{ac_w}}} {{:<17}} "
     
-    print("\nDISCOVERY RESULTS")
-    print("-" * DS_W)
+	print("\nResults")
+	print("-" * DS_W)
     print(h_fm.format("VLAN", "PROTO", "TYPE", "IDENTITY", "MAC ADDRESS"))
     print("-" * DS_W)
     
@@ -291,18 +286,18 @@ def MAIN():
         print(h_fm.format(str(d['v']), d['p'], d['t'], d['n'][:ac_w-1], d['m']))
         
     if not data: 
-        print(" No active PPPoE or IPoE services detected.")
+        print("No services detected.")
     print("-" * DS_W + "\n")
 
 if __name__ == "__main__":
     try: MAIN()
     except KeyboardInterrupt: 
         STOP.set()
-        print("\n[!] Scan interrupted by user.")
+        print("\nScan interrupted.")
         sys.exit(0)
 EOF
 
-echo "[*] Launching Engine..."
+echo "Launching scan engine..."
 if [ "$USE_SYSTEM_SCAPY" = "1" ]; then
     python3 "$PYFS"
 else
