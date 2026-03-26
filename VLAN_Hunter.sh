@@ -174,18 +174,24 @@ def FMTT(SECS):
 
 def PROG(TOTL):
     STRT = time.time()
+    BLEN = 30
+
     while not STOP.is_set() and CPLT < TOTL:
         CURR = CPLT
-        PCTT = (CURR / TOTL) * 100 if TOTL else 0
-        BLEN = 30
-        FILL = int((CURR / TOTL) * BLEN) if TOTL else 0
+        ratio = (CURR / TOTL) if TOTL else 0
+        PCTT = ratio * 100
+        FILL = int(ratio * BLEN)
+
         BARR = '=' * FILL + ' ' * (BLEN - FILL)
-        sys.stdout.write(f"\r[*] Scanning: [{BARR}] {PCTT:.1f}% ({CURR}/{TOTL})")
+
+        prefix = "\r" if sys.stdout.isatty() else ""
+        sys.stdout.write(f"{prefix}[*] Scanning: [{BARR}] {PCTT:.1f}% ({CURR}/{TOTL})")
         sys.stdout.flush()
+
         time.sleep(0.05)
-        
+
     if CPLT >= TOTL:
-        sys.stdout.write(f"\r[+] Scanning: [==============================] 100.0% ({TOTL}/{TOTL})\n")
+        sys.stdout.write(f"\r[+] Scanning: [{'=' * BLEN}] 100.0% ({TOTL}/{TOTL})\n")
         sys.stdout.flush()
 
 def WRKR(IFCE, VLST, HMAC, MBYT):
