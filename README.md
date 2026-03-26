@@ -1,35 +1,35 @@
 # VLAN Hunter
 
-### Overview
-VLAN Hunter is a non-invasive diagnostic engine designed for Service Providers and Network Administrators. It provides a structured view of upstream service availability by enumerating 802.1Q tags and analyzing broadcast responses across the full VLAN ID spectrum (0-4095).
+### Description
+VLAN Hunter is a high-performance network diagnostic engine designed to identify active PPPoE and IPoE services across 802.1Q virtual segments. It utilizes raw frame injection and asynchronous sniffing to map upstream ISP infrastructure with precision, categorized by service type (Internet, IPTV, VoIP, or Management).
 
-### Runtime Isolation Logic
-To ensure host system stability and maintain a "zero-footprint" profile, the utility executes the following automated workflow:
+### Purpose
+The utility provides a structured, non-persistent assessment of network segmentation. It is engineered to bypass hardware-level VLAN filtering, allowing administrators to verify service provisioning and detect hidden 802.1Q tags without modifying the host's global configuration or persistent file system.
 
-1.  **Dependency Validation:** Performs a pre-flight check for `python3`, `curl`, `ethtool`, and `mktemp`.
-2.  **Virtualization:** Initializes an ephemeral Python 3 virtual environment (`venv`) within a randomized `/tmp` directory.
-3.  **NIC Configuration:** Temporarily disables hardware-level VLAN offloading (`rxvlan`) via `ethtool` to allow the Scapy-driven engine to inspect raw 802.1Q headers.
-4.  **Parallel Analysis:** Dispatches multi-threaded probes (PADI and DHCP Discover) and initializes an asynchronous sniffer to capture and correlate upstream responses.
-5.  **Restoration:** Re-enables original hardware offloading settings and recursively purges the temporary workspace.
-
-### Technical Specifications
-* **Injection Engine:** Scapy-based raw frame construction.
-* **Concurrency:** Multi-threaded worker pool with configurable `CONCURRENCY_FACTOR`.
-* **Traffic Capture:** Asynchronous sniffing with 802.1Q tag persistence.
-* **Service Classification:** Heuristic mapping of Service-Names and Vendor-Class-IDs.
-
-### Deployment and Execution
-The utility is optimized for direct remote deployment, bypasssing the need for manual repository management:
+### Deployment and Arguments
+The script is optimized for direct remote execution via a single command:
 
 ```bash
-curl -sSL https://github.com/sussyflow/VLAN-X/blob/main/VLAN_Hunter.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/sussyflow/VLAN-X/main/VLAN_Hunter.sh | sudo bash
 ```
 
-### Security and Compliance
-VLAN Hunter is a "live-run" utility. It does not modify system configuration files, install persistent binary packages, or alter the global Python environment. All operations are confined to memory and ephemeral directories.
+**CLI Reference:**
+| Flag | Long Form | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `-i` | `--interface` | Target physical network interface | `-i eth0` |
+| `-v` | `--vlan` | Specific ID or range to investigate | `-v 10-500` |
 
-### Disclaimer
-This utility is intended for authorized network diagnostics. It performs low-level operations that are visible to network monitoring systems and upstream providers. Use this tool only on infrastructure where you have explicit authority to perform diagnostic assessments.
+### Behavior and Runtime Logic
+To maintain a "zero-footprint" profile, the utility follows a strict execution lifecycle:
+1. **Pre-flight Check:** Validates presence of `python3`, `curl`, `ethtool`, `tput`, and `mktemp`.
+2. **Isolation:** Initializes an ephemeral Python `venv` within a randomized `/tmp` directory.
+3. **Hardware Toggle:** Disables NIC `rxvlan` offloading via `ethtool` to permit raw tag inspection.
+4. **Injection:** Construct and dispatches multi-threaded PADI and DHCP Discover probes.
+5. **Correlation:** Sniffs for upstream responses and heuristic-maps Service-Names and Vendor-IDs.
+6. **Restoration:** Re-enables hardware settings and recursively purges the temporary workspace.
+
+### Disclaimer and License
+**Disclaimer:** This utility is intended for authorized diagnostics only. Operations are performed via raw sockets and are visible to upstream monitoring systems. Use only where you have explicit authority to perform testing.
 
 **Author:** sussyflow  
 **License:** GNU General Public License v3.0
