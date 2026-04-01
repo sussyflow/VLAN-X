@@ -4,6 +4,7 @@
 # Title:        VLAN Hunter
 # Author:       sussyflow
 # Description:  Reliable PPPoE/IPoE VLAN Discovery Tool (Linux)
+# License: GNU General Public License v3.0
 
 [ "$EUID" -ne 0 ] && echo "[!] ERROR: ROOT REQUIRED" && exit 1
 
