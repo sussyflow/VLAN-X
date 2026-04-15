@@ -1,0 +1,10 @@
+# Ignore everything
+*
+
+# Allow directories
+!*/
+
+# Allow specific files
+!LICENSE
+!README.md
+!VLAN_Hunter.sh
