@@ -3,8 +3,25 @@
 
 ## Description
 The utility is engineered to bypass hardware-level VLAN filtering, allowing administrators to verify service provisioning and detect hidden tags without modifying the host's persistent global configuration. It provides a structured, non-persistent assessment of network segmentation, identifying service types by correlating `Service-Name` (PPPoE) and `Vendor-Class-ID` (DHCP) to specific VLAN tags.
-## Deployment & Execution
 
+## Requirements
+### System
+- Linux
+- Root privileges
+- iproute2
+- ethtool
+- coreutils
+- ncurses
+
+### Python
+- Python 3
+- Scapy
+
+### Notes
+- The `--auto` flag can automatically install missing dependencies
+- Supported package managers: apt, dnf, yum, pacman, zypper, apk
+
+## Deployment & Execution
 ### Remote Execution
 Execute the engine directly from the source without a local footprint:
 
@@ -15,7 +32,7 @@ curl -sSL https://raw.githubusercontent.com/sussyflow/VLAN-X/main/VLAN_Hunter.sh
 ### Local Execution
 ```bash
 # Download and prepare the script
-curl -O https://raw.githubusercontent.com/sussyflow/VLAN-X/main/VLAN_Hunter.
+curl -O https://raw.githubusercontent.com/sussyflow/VLAN-X/main/VLAN_Hunter.sh
 chmod +x VLAN_Hunter.sh
 
 # Execute with root privileges
