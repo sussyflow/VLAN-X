@@ -62,7 +62,6 @@ CLI_VLAN_PASSED=0
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        -a|--auto) AUTO_FETCH=1; shift ;;
         -i|--interface) TARGET_INTERFACE="$2"; CLI_INT_PASSED=1; shift 2 ;;
         -m|--mac)
             CMAC=$(echo "$2" | sed 's/[: -]//g' | tr '[:upper:]' '[:lower:]')
@@ -72,6 +71,7 @@ while [[ "$#" -gt 0 ]]; do
         -v|--vlan) 
             [[ "$2" == *","* ]] && echo "Error: Commas not allowed for VLAN." && exit 1
             TARGET_VLAN="$2"; CLI_VLAN_PASSED=1; shift 2 ;;
+        --auto) AUTO_FETCH=1; shift ;;
         --pppoe) PROTO_PPPOE=1; CLI_PROTO_PASSED=1; shift ;;
         --dhcp) PROTO_DHCP=1; CLI_PROTO_PASSED=1; shift ;;
         --igmp) PROTO_IGMP=1; CLI_PROTO_PASSED=1; shift ;;
@@ -223,7 +223,7 @@ for cmd in python3 ip ethtool mktemp tput clear cat grep stty date touch; do
 done
 
 if [[ ${#MISSING_CMDS[@]} -gt 0 ]]; then
-    [[ "$AUTO_FETCH" -ne 1 ]] && { tprint "Critical Error: Missing ${MISSING_CMDS[*]}. Run with -a to resolve."; exit 1; }
+    [[ "$AUTO_FETCH" -ne 1 ]] && { tprint "Critical Error: Missing ${MISSING_CMDS[*]}. Run with --auto to resolve."; exit 1; }
     for cmd in "${MISSING_CMDS[@]}"; do
         pkg="$cmd"
         case "$cmd" in
@@ -245,7 +245,7 @@ fi
 
 if ! "$PYTHON_EXEC" -c "import scapy" >/dev/null 2>&1; then
     tprint "Missing Scapy."
-    [[ "$AUTO_FETCH" -ne 1 ]] && { tprint "Requires Scapy. Use -a to auto-fetch."; exit 1; }
+    [[ "$AUTO_FETCH" -ne 1 ]] && { tprint "Requires Scapy. Use --auto to auto-fetch."; exit 1; }
     SCAPY_PKG="python3-scapy"
     [[ "$PKG_MGR" == "pacman" ]] && SCAPY_PKG="python-scapy"
     [[ "$PKG_MGR" == "apk" ]] && SCAPY_PKG="py3-scapy"
