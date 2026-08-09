@@ -39,7 +39,7 @@ sudo ./VLAN_Hunter.sh
 | `-i` | `--interface`  | Select the network interface.               | `-i eth0`              |
 | `-m` | `--mac`        | Use a custom source MAC address.            | `-m 02:11:22:33:44:55` |
 | `-v` | `--vlan`       | Scan a single VLAN or VLAN range.           | `-v 10-100`            |
-| `-a` | `--auto`       | Automatically install missing dependencies. | `-a`                   |
+|      | `--auto`       | Automatically install missing dependencies. | `--auto`               |
 |      | `--pppoe`      | Enable PPPoE discovery.                     | `--pppoe`              |
 |      | `--dhcp`       | Enable DHCP discovery.                      | `--dhcp`               |
 |      | `--igmp`       | Enable IGMP discovery.                      | `--igmp`               |
